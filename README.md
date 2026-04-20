@@ -38,7 +38,7 @@ The app exposes five Redis-backed patterns in one UI:
 1. Open a terminal in your workbench and change into this workspace:
 
 ```bash
-cd /Users/jessica.emmons/Documents/openshift_demo/ai_demo_scratchpad
+cd /Users/jessica.emmons/Documents/ai_demo_scratchpad
 ```
 
 2. Create and activate a virtual environment:
@@ -81,6 +81,8 @@ If your OpenShift AI model serving endpoints are not OpenAI-compatible, adjust t
 
 - `EMBEDDING_API_FORMAT`: `openai_embeddings` or `tei`
 - `LLM_API_FORMAT`: `openai_chat` or `tgi`
+
+The app also tries common served-model suffixes automatically. For example, a base endpoint may resolve to `/v1/embeddings` for embeddings or `/v1/chat/completions` for chat completions.
 
 ## Run the app
 
