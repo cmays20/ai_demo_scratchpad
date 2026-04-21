@@ -127,18 +127,45 @@ class EndpointClient:
         return candidates
 
     @staticmethod
+    def _strip_known_openai_request_suffix(endpoint: str, suffixes: list[str]) -> str:
+        stripped = endpoint.rstrip("/")
+        parsed = urlsplit(stripped)
+        path = parsed.path.rstrip("/")
+        for suffix in suffixes:
+            clean_suffix = suffix if suffix.startswith("/") else f"/{suffix}"
+            if path.endswith(clean_suffix):
+                path = path[: -len(clean_suffix)]
+                break
+        return urlunsplit((parsed.scheme, parsed.netloc, path, parsed.query, parsed.fragment)).rstrip("/")
+
+    @staticmethod
     def _openai_base_url_candidates(endpoint: str, suffixes: list[str]) -> list[str]:
+        normalized = EndpointClient._strip_known_openai_request_suffix(endpoint, suffixes)
+        parsed = urlsplit(normalized)
+        path = parsed.path.rstrip("/")
+
+        preferred_paths: list[str] = []
+        if path.endswith("/v1/openai/v1"):
+            preferred_paths.extend([path, path[: -len("/openai/v1")] or "/v1"])
+        elif path.endswith("/v1"):
+            preferred_paths.extend([path, f"{path}/openai/v1"])
+        elif path:
+            preferred_paths.extend([f"{path}/v1", f"{path}/v1/openai/v1", path])
+        else:
+            preferred_paths.extend(["/v1", "/v1/openai/v1", ""])
+
         candidates: list[str] = []
         seen: set[str] = set()
-        for endpoint_url in EndpointClient._candidate_urls(endpoint, suffixes):
-            parsed = urlsplit(endpoint_url)
-            path = parsed.path.rstrip("/")
-            for suffix in suffixes:
-                clean_suffix = suffix if suffix.startswith("/") else f"/{suffix}"
-                if path.endswith(clean_suffix):
-                    path = path[: -len(clean_suffix)]
-                    break
-            base_url = urlunsplit((parsed.scheme, parsed.netloc, path, parsed.query, parsed.fragment)).rstrip("/")
+        for candidate_path in preferred_paths:
+            base_url = urlunsplit(
+                (
+                    parsed.scheme,
+                    parsed.netloc,
+                    candidate_path,
+                    parsed.query,
+                    parsed.fragment,
+                )
+            ).rstrip("/")
             if base_url and base_url not in seen:
                 seen.add(base_url)
                 candidates.append(base_url)
