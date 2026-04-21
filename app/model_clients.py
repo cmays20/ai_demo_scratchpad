@@ -7,13 +7,21 @@ from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
 import requests
+from openai import APIError, OpenAI
+from openai import OpenAIError
 
 from app.config import settings
 
-OPENAI_EMBEDDING_SUFFIXES = [
+OPENAI_EMBEDDING_ENDPOINT_SUFFIXES = [
     "/v1/embeddings",
     "/v1/openai/v1/embeddings",
     "/embeddings",
+]
+
+OPENAI_CHAT_ENDPOINT_SUFFIXES = [
+    "/v1/chat/completions",
+    "/v1/openai/v1/chat/completions",
+    "/chat/completions",
 ]
 
 TEI_EMBEDDING_SUFFIXES = [
@@ -113,31 +121,57 @@ class EndpointClient:
             candidates.append(merged)
         return candidates
 
+    @staticmethod
+    def _openai_base_url_candidates(endpoint: str, suffixes: list[str]) -> list[str]:
+        candidates: list[str] = []
+        seen: set[str] = set()
+        for endpoint_url in EndpointClient._candidate_urls(endpoint, suffixes):
+            parsed = urlsplit(endpoint_url)
+            path = parsed.path.rstrip("/")
+            for suffix in suffixes:
+                clean_suffix = suffix if suffix.startswith("/") else f"/{suffix}"
+                if path.endswith(clean_suffix):
+                    path = path[: -len(clean_suffix)]
+                    break
+            base_url = urlunsplit((parsed.scheme, parsed.netloc, path, parsed.query, parsed.fragment)).rstrip("/")
+            if base_url and base_url not in seen:
+                seen.add(base_url)
+                candidates.append(base_url)
+        return candidates
+
 
 class EmbeddingClient(EndpointClient):
     def embed(self, text: str) -> EmbeddingResult:
         fmt = settings.embedding_api_format
         if fmt == "openai_embeddings":
-            payload = {"model": settings.embedding_model, "input": text}
-            try:
-                data, latency_ms = self._post_with_fallbacks(
-                    settings.embedding_endpoint,
-                    payload,
-                    OPENAI_EMBEDDING_SUFFIXES,
-                )
-            except ModelClientError as exc:
-                raise ModelClientError(
-                    "Embedding endpoint could not be reached with the configured OpenAI-compatible paths. "
-                    f"Checked base URL plus: {', '.join(OPENAI_EMBEDDING_SUFFIXES)}. "
-                    "If this model is served through OpenShift AI Llama Stack, "
-                    "the route is often /v1/openai/v1/embeddings. "
-                    "If it is served through TEI instead, set EMBEDDING_API_FORMAT=tei."
-                ) from exc
-            try:
-                vector = data["data"][0]["embedding"]
-            except (KeyError, IndexError, TypeError) as exc:
-                raise ModelClientError(f"Unexpected embedding response: {data}") from exc
-            return EmbeddingResult(vector=vector, latency_ms=latency_ms)
+            last_error: Exception | None = None
+            attempted_bases: list[str] = []
+            api_key = settings.model_api_key or "not-needed-for-internal-service"
+            for base_url in self._openai_base_url_candidates(
+                settings.embedding_endpoint,
+                OPENAI_EMBEDDING_ENDPOINT_SUFFIXES,
+            ):
+                attempted_bases.append(base_url)
+                client = OpenAI(base_url=base_url, api_key=api_key, timeout=self.timeout)
+                started = time.perf_counter()
+                try:
+                    response = client.embeddings.create(model=settings.embedding_model, input=text)
+                    latency_ms = (time.perf_counter() - started) * 1000
+                    vector = response.data[0].embedding
+                    return EmbeddingResult(vector=vector, latency_ms=latency_ms)
+                except (OpenAIError, APIError) as exc:
+                    last_error = exc
+                    status_code = getattr(exc, "status_code", None)
+                    if status_code != 404:
+                        break
+            raise ModelClientError(
+                "Embedding endpoint could not be reached with the OpenAI client. "
+                f"Tried base URLs: {', '.join(attempted_bases)}. "
+                "The app prefers a /v1 base URL for OpenAI-compatible embeddings and also checks "
+                "/v1/openai/v1 for OpenShift AI Llama Stack-style routes. "
+                "If this service is TEI-backed instead, set EMBEDDING_API_FORMAT=tei. "
+                f"Last error: {last_error}"
+            ) from last_error
         if fmt == "tei":
             payload = {"inputs": text}
             try:
@@ -167,25 +201,46 @@ class LLMClient(EndpointClient):
             if system_prompt:
                 messages.append({"role": "system", "content": system_prompt})
             messages.append({"role": "user", "content": prompt})
-            payload = {"model": settings.llm_model, "messages": messages, "temperature": 0.2}
-            data, latency_ms = self._post_with_fallbacks(
+            last_error: Exception | None = None
+            attempted_bases: list[str] = []
+            api_key = settings.model_api_key or "not-needed-for-internal-service"
+            for base_url in self._openai_base_url_candidates(
                 settings.llm_endpoint,
-                payload,
-                ["/v1/chat/completions", "/chat/completions"],
-            )
-            try:
-                text = data["choices"][0]["message"]["content"]
-            except (KeyError, IndexError, TypeError) as exc:
-                raise ModelClientError(f"Unexpected chat response: {data}") from exc
-            usage = data.get("usage", {})
-            return GenerationResult(
-                text=text.strip(),
-                latency_ms=latency_ms,
-                prompt_tokens=usage.get("prompt_tokens"),
-                completion_tokens=usage.get("completion_tokens"),
-                total_tokens=usage.get("total_tokens"),
-                raw_response=data,
-            )
+                OPENAI_CHAT_ENDPOINT_SUFFIXES,
+            ):
+                attempted_bases.append(base_url)
+                client = OpenAI(base_url=base_url, api_key=api_key, timeout=self.timeout)
+                started = time.perf_counter()
+                try:
+                    response = client.chat.completions.create(
+                        model=settings.llm_model,
+                        messages=messages,
+                        temperature=0.2,
+                    )
+                    latency_ms = (time.perf_counter() - started) * 1000
+                    text = response.choices[0].message.content or ""
+                    usage = response.usage
+                    raw_response = response.model_dump()
+                    return GenerationResult(
+                        text=text.strip(),
+                        latency_ms=latency_ms,
+                        prompt_tokens=usage.prompt_tokens if usage else None,
+                        completion_tokens=usage.completion_tokens if usage else None,
+                        total_tokens=usage.total_tokens if usage else None,
+                        raw_response=raw_response,
+                    )
+                except (OpenAIError, APIError) as exc:
+                    last_error = exc
+                    status_code = getattr(exc, "status_code", None)
+                    if status_code != 404:
+                        break
+            raise ModelClientError(
+                "LLM endpoint could not be reached with the OpenAI client. "
+                f"Tried base URLs: {', '.join(attempted_bases)}. "
+                "The app prefers a /v1 base URL for OpenAI-compatible chat completions and also checks "
+                "/v1/openai/v1 for OpenShift AI Llama Stack-style routes. "
+                f"Last error: {last_error}"
+            ) from last_error
         if fmt == "tgi":
             payload = {
                 "inputs": prompt if not system_prompt else f"{system_prompt}\n\nUser: {prompt}\nAssistant:",
