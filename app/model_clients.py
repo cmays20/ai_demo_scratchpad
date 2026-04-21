@@ -10,6 +10,17 @@ import requests
 
 from app.config import settings
 
+OPENAI_EMBEDDING_SUFFIXES = [
+    "/v1/embeddings",
+    "/v1/openai/v1/embeddings",
+    "/embeddings",
+]
+
+TEI_EMBEDDING_SUFFIXES = [
+    "/embed",
+    "/embeddings",
+]
+
 
 class ModelClientError(RuntimeError):
     """Raised when a model endpoint cannot be called or parsed."""
@@ -108,11 +119,20 @@ class EmbeddingClient(EndpointClient):
         fmt = settings.embedding_api_format
         if fmt == "openai_embeddings":
             payload = {"model": settings.embedding_model, "input": text}
-            data, latency_ms = self._post_with_fallbacks(
-                settings.embedding_endpoint,
-                payload,
-                ["/v1/embeddings", "/embeddings"],
-            )
+            try:
+                data, latency_ms = self._post_with_fallbacks(
+                    settings.embedding_endpoint,
+                    payload,
+                    OPENAI_EMBEDDING_SUFFIXES,
+                )
+            except ModelClientError as exc:
+                raise ModelClientError(
+                    "Embedding endpoint could not be reached with the configured OpenAI-compatible paths. "
+                    f"Checked base URL plus: {', '.join(OPENAI_EMBEDDING_SUFFIXES)}. "
+                    "If this model is served through OpenShift AI Llama Stack, "
+                    "the route is often /v1/openai/v1/embeddings. "
+                    "If it is served through TEI instead, set EMBEDDING_API_FORMAT=tei."
+                ) from exc
             try:
                 vector = data["data"][0]["embedding"]
             except (KeyError, IndexError, TypeError) as exc:
@@ -120,11 +140,19 @@ class EmbeddingClient(EndpointClient):
             return EmbeddingResult(vector=vector, latency_ms=latency_ms)
         if fmt == "tei":
             payload = {"inputs": text}
-            data, latency_ms = self._post_with_fallbacks(
-                settings.embedding_endpoint,
-                payload,
-                ["/embed", "/embeddings"],
-            )
+            try:
+                data, latency_ms = self._post_with_fallbacks(
+                    settings.embedding_endpoint,
+                    payload,
+                    TEI_EMBEDDING_SUFFIXES,
+                )
+            except ModelClientError as exc:
+                raise ModelClientError(
+                    "Embedding endpoint could not be reached with the configured TEI paths. "
+                    f"Checked base URL plus: {', '.join(TEI_EMBEDDING_SUFFIXES)}. "
+                    "If this model is exposed through an OpenAI-compatible OpenShift AI route instead, "
+                    "set EMBEDDING_API_FORMAT=openai_embeddings."
+                ) from exc
             if not isinstance(data, list):
                 raise ModelClientError(f"Unexpected TEI embedding response: {data}")
             return EmbeddingResult(vector=data[0] if data and isinstance(data[0], list) else data, latency_ms=latency_ms)

@@ -43,13 +43,27 @@ def ingest_seed_data(service: DemoService, session_id: str) -> None:
     st.session_state.seeded = True
 
 
+def render_sidebar_error(message: str, exc: Exception) -> None:
+    st.sidebar.error(message)
+    with st.sidebar.expander("Technical details"):
+        st.code(str(exc))
+        st.code(traceback.format_exc())
+
+
 def render_sidebar(service: DemoService) -> None:
     st.sidebar.title("Demo Controls")
     st.sidebar.caption("OpenShift AI + Redis reference implementation")
     st.sidebar.text_input("Session ID", key="session_id")
     if st.sidebar.button("Load Defense Knowledge Pack", use_container_width=True):
-        ingest_seed_data(service, st.session_state.session_id)
-        st.sidebar.success("Seed documents loaded into Redis vector search.")
+        try:
+            ingest_seed_data(service, st.session_state.session_id)
+        except Exception as exc:
+            render_sidebar_error(
+                "Unable to load the defense knowledge pack. Check the embedding endpoint route and API format.",
+                exc,
+            )
+        else:
+            st.sidebar.success("Seed documents loaded into Redis vector search.")
 
     uploads = st.sidebar.file_uploader(
         "Upload documents for RAG",
@@ -58,8 +72,16 @@ def render_sidebar(service: DemoService) -> None:
     )
     if uploads:
         for upload in uploads:
-            result = service.rag.ingest_uploaded_file(st.session_state.session_id, upload)
-            st.sidebar.success(f"Ingested {upload.name}: {result.chunks} chunks")
+            try:
+                result = service.rag.ingest_uploaded_file(st.session_state.session_id, upload)
+            except Exception as exc:
+                render_sidebar_error(
+                    f"Unable to ingest {upload.name}. Check the embedding endpoint route and API format.",
+                    exc,
+                )
+                break
+            else:
+                st.sidebar.success(f"Ingested {upload.name}: {result.chunks} chunks")
 
     if st.sidebar.button("Clear Conversation Memory", use_container_width=True):
         service.memory.clear(st.session_state.session_id)
