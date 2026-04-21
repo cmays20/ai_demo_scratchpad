@@ -59,7 +59,6 @@ def get_redis_client() -> redis.Redis:
         "host": settings.redis_host,
         "port": settings.redis_port,
         "password": settings.redis_password,
-        "ssl": settings.redis_ssl,
         "decode_responses": False,
     }
     if settings.redis_ssl:
@@ -75,4 +74,5 @@ def get_redis_client() -> redis.Redis:
         pool = redis.ConnectionPool(connection_class=SNIOverrideSSLConnection, **kwargs)
         return redis.Redis(connection_pool=pool)
 
+    kwargs["ssl"] = False
     return redis.Redis(**kwargs)
