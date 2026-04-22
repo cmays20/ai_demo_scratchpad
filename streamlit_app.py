@@ -114,6 +114,17 @@ def render_enhanced_telemetry(container, features: FeatureFlags) -> None:
             container.caption("No retrieval context used for the last answer.")
 
 
+def render_baseline_telemetry(container) -> None:
+    result = st.session_state.baseline_last_result
+    if not result:
+        container.caption("Baseline telemetry will appear after you send a message.")
+        return
+
+    container.markdown("#### Telemetry")
+    container.write(f"**LLM latency:** {result.llm_latency_ms:.1f} ms")
+    container.write(f"**Estimated total tokens:** {result.total_tokens}")
+
+
 def enhanced_feature_flags() -> FeatureFlags:
     return FeatureFlags(
         semantic_cache=st.session_state.enhanced_feature_semantic_cache,
@@ -213,10 +224,13 @@ def main() -> None:
             )
             baseline_submitted = st.form_submit_button("Send to Baseline", use_container_width=True)
         if baseline_submitted:
-            process_baseline_submit(service)
+            with st.spinner("Baseline chat is generating a response..."):
+                process_baseline_submit(service)
         if st.session_state.baseline_error:
             message, details = st.session_state.baseline_error
             render_error(st, message, details)
+        baseline_telemetry = st.container(border=True)
+        render_baseline_telemetry(baseline_telemetry)
 
     with right_col:
         st.subheader("Redis-Enhanced Chat")
@@ -257,7 +271,8 @@ def main() -> None:
             )
             render_enhanced_telemetry(st, enhanced_feature_flags())
         if enhanced_submitted:
-            process_enhanced_submit(service)
+            with st.spinner("Enhanced chat is processing with the selected features..."):
+                process_enhanced_submit(service)
         if st.session_state.enhanced_error:
             message, details = st.session_state.enhanced_error
             render_error(st, message, details)
