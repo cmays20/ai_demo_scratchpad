@@ -27,9 +27,10 @@
 #
 # SCC note
 # --------
-# The step image (ubi9/ubi-minimal) runs as the default non-root UID assigned
-# by OpenShift and is compatible with the pipelines-scc granted to the pipeline
-# ServiceAccount. No additional SCC grants are required.
+# The step image (ubi9/ubi) runs as root (UID 0) by default, which is allowed
+# by the pipelines-scc (runAsAny) granted to the pipeline ServiceAccount.
+# git is installed at step runtime via dnf; this avoids pulling a separate
+# git-enabled image and keeps everything on Red Hat UBI.
 # =============================================================================
 apiVersion: tekton.dev/v1
 kind: Task
@@ -86,11 +87,12 @@ spec:
 
   steps:
     # -------------------------------------------------------------------------
-    # Step 1 — patch kustomization.yaml
-    # Uses only bash + sed (available in ubi-minimal). No extra installs needed.
+    # Single step — patch kustomization.yaml, commit, and push.
+    # Uses ubi9/ubi (full UBI, runs as root) so dnf can install git at runtime.
+    # sed and bash are also available out of the box.
     # -------------------------------------------------------------------------
-    - name: patch-kustomization
-      image: registry.access.redhat.com/ubi9/ubi-minimal:latest
+    - name: patch-and-push
+      image: registry.access.redhat.com/ubi9/ubi:latest
       workingDir: $(workspaces.source.path)
       computeResources: {}
       env:
@@ -98,39 +100,6 @@ spec:
           value: $(params.image-name)
         - name: IMAGE_TAG
           value: $(params.image-tag)
-        - name: DEPLOY_DIR
-          value: $(params.deploy-dir)
-      script: |
-        #!/bin/bash
-        set -euo pipefail
-
-        KFILE="${DEPLOY_DIR}/kustomization.yaml"
-
-        echo "==> Patching ${KFILE}"
-        echo "    newName: ${IMAGE_NAME}"
-        echo "    newTag:  ${IMAGE_TAG}"
-
-        # Replace the newName and newTag lines in the images block.
-        # The sed patterns target lines that follow a '- name: ai-demo-scratchpad'
-        # entry, making the substitution safe even if there are multiple images.
-        sed -i "s|newName:.*|newName: ${IMAGE_NAME}|" "${KFILE}"
-        sed -i "s|newTag:.*|newTag: ${IMAGE_TAG}|"   "${KFILE}"
-
-        echo "==> Updated kustomization:"
-        cat "${KFILE}"
-
-    # -------------------------------------------------------------------------
-    # Step 2 — commit and push
-    # Uses git (installed in ubi9/ubi via microdnf, or use a git-enabled image).
-    # If your cluster mirrors packages internally, replace the image with one
-    # that has git pre-installed (e.g. quay.io/openshift/origin-cli:latest
-    # which bundles git and oc).
-    # -------------------------------------------------------------------------
-    - name: git-commit-and-push
-      image: quay.io/openshift/origin-cli:latest
-      workingDir: $(workspaces.source.path)
-      computeResources: {}
-      env:
         - name: GIT_USER_NAME
           value: $(params.git-user-name)
         - name: GIT_USER_EMAIL
@@ -139,15 +108,27 @@ spec:
           value: $(params.git-revision)
         - name: GIT_URL
           value: $(params.git-url)
-        - name: IMAGE_TAG
-          value: $(params.image-tag)
         - name: DEPLOY_DIR
           value: $(params.deploy-dir)
       script: |
         #!/bin/bash
         set -euo pipefail
 
-        CREDS="$(workspaces.git-credentials.path)"
+        # ---- Install git ----------------------------------------------------
+        dnf install -y git --nodocs --setopt=install_weak_deps=False -q
+
+        # ---- Patch kustomization.yaml ---------------------------------------
+        KFILE="${DEPLOY_DIR}/kustomization.yaml"
+
+        echo "==> Patching ${KFILE}"
+        echo "    newName: ${IMAGE_NAME}"
+        echo "    newTag:  ${IMAGE_TAG}"
+
+        sed -i "s|newName:.*|newName: ${IMAGE_NAME}|" "${KFILE}"
+        sed -i "s|newTag:.*|newTag: ${IMAGE_TAG}|"   "${KFILE}"
+
+        echo "==> Updated kustomization:"
+        cat "${KFILE}"
 
         # ---- Configure git identity ----------------------------------------
         git config user.name  "${GIT_USER_NAME}"
@@ -155,27 +136,28 @@ spec:
 
         # ---- Configure HTTPS credentials ------------------------------------
         # The workspace secret has 'username' and 'password' files.
+        CREDS="$(workspaces.git-credentials.path)"
         GIT_USERNAME=$(cat "${CREDS}/username")
         GIT_PASSWORD=$(cat "${CREDS}/password")
 
         # Write a .netrc so git uses the token automatically
         cat > ~/.netrc <<NETRC
-        machine github.com
-          login ${GIT_USERNAME}
-          password ${GIT_PASSWORD}
-        machine gitlab.com
-          login ${GIT_USERNAME}
-          password ${GIT_PASSWORD}
-        NETRC
+machine github.com
+  login ${GIT_USERNAME}
+  password ${GIT_PASSWORD}
+machine gitlab.com
+  login ${GIT_USERNAME}
+  password ${GIT_PASSWORD}
+NETRC
         chmod 600 ~/.netrc
 
-        # Update the remote URL to HTTPS (in case it was cloned via SSH)
+        # Ensure the remote is set to the HTTPS URL (in case cloned via SSH)
         git remote set-url origin "${GIT_URL}"
 
         # ---- Stage, commit, push -------------------------------------------
         git add "${DEPLOY_DIR}/kustomization.yaml"
 
-        # Exit cleanly if there is nothing to commit (idempotent re-runs)
+        # Exit cleanly if nothing changed (idempotent re-runs)
         if git diff --cached --quiet; then
           echo "==> kustomization.yaml already up to date — nothing to commit."
           exit 0
@@ -183,9 +165,9 @@ spec:
 
         git commit -m "ci: deploy image tag ${IMAGE_TAG}
 
-        Automated commit by OpenShift Pipeline.
-        Updated deploy/kustomization.yaml to point to the new image SHA.
-        ArgoCD will detect this change and roll out the new version."
+Automated commit by OpenShift Pipeline.
+Updated deploy/kustomization.yaml to point to the new image SHA.
+ArgoCD will detect this change and roll out the new version."
 
         git push origin "HEAD:${GIT_REVISION}"
 
