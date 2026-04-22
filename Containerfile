@@ -17,8 +17,10 @@ RUN pip install --no-cache-dir --upgrade pip && \
 COPY . .
 
 # OpenShift runs pods as a random UID in the root group (GID 0).
-# Grant the root group read/write access so the app functions correctly.
+# Switch to root to chgrp, then drop back to the image's default non-root user.
+USER 0
 RUN chgrp -R 0 /app && chmod -R g=u /app
+USER 1001
 
 # Streamlit runtime configuration
 ENV STREAMLIT_SERVER_ADDRESS=0.0.0.0 \
