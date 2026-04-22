@@ -136,7 +136,6 @@ def process_baseline_submit(service: DemoService) -> None:
     st.session_state.baseline_last_result = result
     st.session_state.baseline_messages.append({"role": "assistant", "content": result.answer})
     st.session_state.baseline_error = None
-    st.session_state.baseline_input = ""
 
 
 def process_enhanced_submit(service: DemoService) -> None:
@@ -161,7 +160,6 @@ def process_enhanced_submit(service: DemoService) -> None:
         st.session_state.enhanced_metrics["cache_hits"] += 1
         st.session_state.enhanced_metrics["tokens_saved"] += result.cache.tokens_saved
         st.session_state.enhanced_metrics["cost_saved"] += result.cache.cost_saved
-    st.session_state.enhanced_input = ""
 
 
 def handle_enhanced_uploads(service: DemoService, container) -> None:
@@ -206,7 +204,7 @@ def main() -> None:
             st.session_state.baseline_messages,
             "Send a message to test the baseline LLM flow.",
         )
-        with st.form("baseline_form", clear_on_submit=False):
+        with st.form("baseline_form", clear_on_submit=True):
             st.text_area(
                 "Message",
                 key="baseline_input",
@@ -229,7 +227,7 @@ def main() -> None:
             st.session_state.enhanced_messages,
             "Send a message or upload a file to test the enhanced flow.",
         )
-        with st.form("enhanced_form", clear_on_submit=False):
+        with st.form("enhanced_form", clear_on_submit=True):
             st.text_area(
                 "Message",
                 key="enhanced_input",
