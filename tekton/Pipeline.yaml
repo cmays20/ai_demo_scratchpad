@@ -95,11 +95,11 @@ spec:
         - name: output
           workspace: source
       params:
-        - name: url
+        - name: URL
           value: $(params.git-url)
-        - name: revision
+        - name: REVISION
           value: $(params.git-revision)
-        - name: deleteExisting
+        - name: DELETE_EXISTING
           value: "true"
       # Outputs:
       #   commit — full 40-char SHA, used as the image tag downstream
@@ -129,7 +129,7 @@ spec:
       params:
         - name: IMAGE
           # Full image ref: <registry>/<ns>/<app>:<git-sha>
-          value: $(params.image-registry):$(tasks.git-clone.results.commit)
+          value: $(params.image-registry):$(tasks.git-clone.results.COMMIT)
         - name: DOCKERFILE
           value: ./Containerfile
         - name: CONTEXT
@@ -164,7 +164,7 @@ spec:
         - name: image-name
           value: $(params.image-registry)
         - name: image-tag
-          value: $(tasks.git-clone.results.commit)
+          value: $(tasks.git-clone.results.COMMIT)
         - name: git-url
           value: $(params.git-url)
         - name: git-revision
@@ -182,7 +182,7 @@ spec:
   results:
     - name: git-commit
       description: "Git commit SHA that was built and deployed"
-      value: $(tasks.git-clone.results.commit)
+      value: $(tasks.git-clone.results.COMMIT)
     - name: image-digest
       description: "OCI digest of the pushed image (sha256:...)"
       value: $(tasks.build-and-push.results.IMAGE_DIGEST)
