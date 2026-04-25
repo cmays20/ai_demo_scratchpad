@@ -58,18 +58,21 @@ def inject_branding_styles() -> None:
         """
         <style>
         :root {
-          --redis-ink: #1f2937;
-          --redis-surface: #f7f4ef;
-          --redis-surface-strong: #fffdf8;
-          --redis-stroke: #e6ded1;
-          --redis-primary: #a41e22;
-          --redis-primary-dark: #7f1316;
-          --redis-accent: #2b6cb0;
-          --redis-accent-soft: #dceefe;
+          --redis-ink: #f6efe5;
+          --redis-ink-muted: rgba(246, 239, 229, 0.72);
+          --redis-surface: #16100f;
+          --redis-surface-strong: #211817;
+          --redis-panel: rgba(33, 24, 23, 0.94);
+          --redis-panel-soft: rgba(26, 18, 17, 0.88);
+          --redis-stroke: rgba(246, 239, 229, 0.12);
+          --redis-primary: #c94f45;
+          --redis-primary-dark: #8f231d;
+          --redis-accent: #7e2d28;
+          --redis-accent-soft: rgba(126, 45, 40, 0.28);
           --redhat-accent: #ee0000;
-          --redhat-accent-soft: rgba(238, 0, 0, 0.08);
-          --success-soft: #e6f7ef;
-          --shadow-soft: 0 18px 45px rgba(31, 41, 55, 0.08);
+          --redhat-accent-soft: rgba(238, 0, 0, 0.14);
+          --success-soft: rgba(50, 115, 82, 0.28);
+          --shadow-soft: 0 24px 60px rgba(0, 0, 0, 0.35);
           --radius-xl: 24px;
           --radius-lg: 18px;
           --radius-md: 14px;
@@ -77,8 +80,9 @@ def inject_branding_styles() -> None:
 
         .stApp {
           background:
-            radial-gradient(circle at top right, rgba(43, 108, 176, 0.08), transparent 28%),
-            linear-gradient(180deg, #fbfaf7 0%, #f4efe7 100%);
+            radial-gradient(circle at top right, rgba(201, 79, 69, 0.14), transparent 26%),
+            radial-gradient(circle at bottom left, rgba(238, 0, 0, 0.08), transparent 24%),
+            linear-gradient(180deg, #0f0a09 0%, #181110 100%);
           color: var(--redis-ink);
         }
 
@@ -93,7 +97,7 @@ def inject_branding_styles() -> None:
 
         .brand-shell {
           border: 1px solid var(--redis-stroke);
-          background: linear-gradient(135deg, rgba(164, 30, 34, 0.06), rgba(255, 255, 255, 0.9));
+          background: linear-gradient(135deg, rgba(143, 35, 29, 0.42), rgba(27, 19, 18, 0.96));
           border-radius: var(--radius-xl);
           padding: 1.5rem 1.75rem;
           box-shadow: var(--shadow-soft);
@@ -110,7 +114,7 @@ def inject_branding_styles() -> None:
 
         .brand-subtitle {
           margin: 0.5rem 0 0;
-          color: rgba(31, 41, 55, 0.75);
+          color: var(--redis-ink-muted);
           font-size: 1rem;
           max-width: 64rem;
         }
@@ -128,19 +132,19 @@ def inject_branding_styles() -> None:
           gap: 0.35rem;
           padding: 0.45rem 0.8rem;
           border-radius: 999px;
-          background: rgba(255, 255, 255, 0.88);
+          background: rgba(255, 255, 255, 0.04);
           border: 1px solid var(--redis-stroke);
           font-size: 0.87rem;
           color: var(--redis-ink);
         }
 
         .brand-chip strong {
-          color: var(--redis-primary-dark);
+          color: #ffb0a7;
         }
 
         .panel-card {
           border: 1px solid var(--redis-stroke);
-          background: rgba(255, 255, 255, 0.86);
+          background: var(--redis-panel);
           border-radius: var(--radius-xl);
           padding: 1rem 1rem 1.2rem;
           box-shadow: var(--shadow-soft);
@@ -148,12 +152,12 @@ def inject_branding_styles() -> None:
         }
 
         .panel-card.baseline {
-          background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(247, 244, 239, 0.95));
+          background: linear-gradient(180deg, rgba(33, 24, 23, 0.96), rgba(21, 15, 14, 0.96));
         }
 
         .panel-card.enhanced {
-          background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(220, 238, 254, 0.28));
-          border-color: rgba(43, 108, 176, 0.22);
+          background: linear-gradient(180deg, rgba(43, 22, 20, 0.96), rgba(24, 16, 15, 0.96));
+          border-color: rgba(201, 79, 69, 0.28);
         }
 
         .panel-kicker {
@@ -169,40 +173,45 @@ def inject_branding_styles() -> None:
         }
 
         .panel-kicker.baseline {
-          background: rgba(31, 41, 55, 0.08);
-          color: var(--redis-ink);
+          background: rgba(255, 255, 255, 0.07);
+          color: var(--redis-ink-muted);
         }
 
         .panel-kicker.enhanced {
           background: var(--redis-accent-soft);
-          color: var(--redis-accent);
+          color: #ffb0a7;
         }
 
         .section-card {
           border: 1px solid var(--redis-stroke);
-          background: var(--redis-surface-strong);
+          background: var(--redis-panel-soft);
           border-radius: var(--radius-lg);
           padding: 0.85rem 1rem;
           margin-top: 0.9rem;
         }
 
         .section-card.controls {
-          border-left: 4px solid var(--redis-accent);
+          border-left: 4px solid var(--redis-primary);
         }
 
         .section-card.telemetry {
           border-left: 4px solid var(--redhat-accent);
         }
 
+        .stMarkdown, .stCaption, .stText, p, label {
+          color: var(--redis-ink);
+        }
+
         div[data-testid="stTextArea"] textarea {
           border-radius: var(--radius-md);
           border: 1px solid var(--redis-stroke);
-          background: rgba(255, 253, 248, 0.95);
+          background: rgba(255, 255, 255, 0.04);
+          color: var(--redis-ink);
         }
 
         div[data-testid="stTextArea"] textarea:focus {
-          border-color: var(--redis-accent);
-          box-shadow: 0 0 0 1px var(--redis-accent);
+          border-color: var(--redis-primary);
+          box-shadow: 0 0 0 1px var(--redis-primary);
         }
 
         .stButton > button,
@@ -213,7 +222,7 @@ def inject_branding_styles() -> None:
           border-radius: 999px;
           font-weight: 700;
           padding: 0.55rem 1rem;
-          box-shadow: 0 10px 24px rgba(164, 30, 34, 0.18);
+          box-shadow: 0 14px 28px rgba(143, 35, 29, 0.38);
         }
 
         .stButton > button:hover,
@@ -223,15 +232,23 @@ def inject_branding_styles() -> None:
 
         div[data-testid="stFileUploader"] section {
           border-radius: var(--radius-md);
-          border: 1px dashed var(--redis-accent);
-          background: rgba(220, 238, 254, 0.24);
+          border: 1px dashed rgba(201, 79, 69, 0.38);
+          background: rgba(255, 255, 255, 0.03);
         }
 
         div[data-testid="stMetric"] {
-          background: rgba(255, 255, 255, 0.86);
+          background: rgba(255, 255, 255, 0.04);
           border: 1px solid var(--redis-stroke);
           border-radius: var(--radius-md);
           padding: 0.6rem 0.8rem;
+        }
+
+        div[data-testid="stAlert"] {
+          border-radius: var(--radius-md);
+        }
+
+        .stInfo, .stSuccess, .stWarning, .stError {
+          background: rgba(255, 255, 255, 0.03);
         }
         </style>
         """,
