@@ -142,6 +142,14 @@ def inject_branding_styles() -> None:
           color: #ff948a;
         }
 
+        .panel-heading {
+          margin: 0 0 0.35rem 0;
+          font-size: 1.45rem;
+          font-weight: 700;
+          letter-spacing: -0.02em;
+          color: var(--redis-ink);
+        }
+
         .panel-card {
           border: 1px solid var(--redis-stroke);
           background: var(--redis-panel);
@@ -398,7 +406,7 @@ def main() -> None:
 
     with left_col:
         st.markdown('<div class="panel-card baseline">', unsafe_allow_html=True)
-        st.subheader("Baseline LLM")
+        st.markdown('<h3 class="panel-heading">Baseline LLM</h3>', unsafe_allow_html=True)
         st.caption("A neutral baseline path that uses the same model and system prompt without Redis-backed features.")
         baseline_messages = st.container(height=420)
         render_messages(
@@ -429,7 +437,7 @@ def main() -> None:
 
     with right_col:
         st.markdown('<div class="panel-card enhanced">', unsafe_allow_html=True)
-        st.subheader("Redis Enhanced")
+        st.markdown('<h3 class="panel-heading">Redis Enhanced</h3>', unsafe_allow_html=True)
         st.caption("Enable Redis-backed features selectively to compare caching, memory, routing, and retrieval.")
         enhanced_messages = st.container(height=420)
         render_messages(
