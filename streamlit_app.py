@@ -240,6 +240,25 @@ def inject_branding_styles() -> None:
         .stInfo, .stSuccess, .stWarning, .stError {
           background: rgba(255, 255, 255, 0.03);
         }
+
+        div[data-testid="stAlert"][data-baseweb="notification"] {
+          border: 1px solid var(--redis-stroke);
+          box-shadow: none;
+        }
+
+        div[data-testid="stAlert"][data-baseweb="notification"]:has([data-testid="stMarkdownContainer"]) {
+          color: var(--redis-ink);
+        }
+
+        div[data-testid="stAlert"] [data-testid="stNotificationContentSuccess"] {
+          background: linear-gradient(135deg, rgba(255, 68, 56, 0.16), rgba(255, 68, 56, 0.07));
+          border-left: 4px solid var(--redis-primary);
+          color: var(--redis-ink);
+        }
+
+        div[data-testid="stAlert"] [data-testid="stNotificationContentSuccess"] svg {
+          fill: var(--redis-primary);
+        }
         </style>
         """,
         unsafe_allow_html=True,
