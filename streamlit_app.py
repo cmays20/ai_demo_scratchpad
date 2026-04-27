@@ -338,20 +338,23 @@ def render_enhanced_telemetry(container, features: FeatureFlags) -> None:
         container.caption("Enhanced telemetry will appear after you send a message.")
         return
 
+    response_latency_ms = result.llm_latency_ms + result.embedding_latency_ms
     container.markdown("#### Telemetry")
-    container.write(f"**LLM latency:** {result.llm_latency_ms:.1f} ms")
+    container.write(f"**Response latency:** {response_latency_ms:.1f} ms")
     container.write(f"**Estimated total tokens:** {result.total_tokens}")
-    if features.routing:
-        container.write(f"**Route selected:** `{result.route.route}`")
     if features.semantic_cache:
         container.write(f"**Cache status:** {'Hit' if result.used_cache else 'Miss'}")
+        metrics = st.session_state.enhanced_metrics
+        container.write(
+            f"**Cache summary:** {metrics['cache_hits']} hits | "
+            f"{metrics['tokens_saved']} tokens saved | "
+            f"${metrics['cost_saved']:.4f} estimated cost saved"
+        )
         if result.cache.hit:
             container.success(
                 f"Semantic cache hit. Saved ~{result.cache.tokens_saved} tokens and "
                 f"${result.cache.cost_saved:.4f}."
             )
-    if features.semantic_cache or features.rag_context:
-        container.write(f"**Embedding latency:** {result.embedding_latency_ms:.1f} ms")
     if features.memory:
         memory = result.memory_summary
         container.write(f"**Memory turns retained:** {memory['turns']}")
@@ -364,6 +367,8 @@ def render_enhanced_telemetry(container, features: FeatureFlags) -> None:
                 )
         else:
             container.caption("No retrieval context used for the last answer.")
+    if features.routing:
+        container.write(f"**Route selected:** `{result.route.route}`")
 
 
 def render_baseline_telemetry(container) -> None:
@@ -373,7 +378,7 @@ def render_baseline_telemetry(container) -> None:
         return
 
     container.markdown("#### Telemetry")
-    container.write(f"**LLM latency:** {result.llm_latency_ms:.1f} ms")
+    container.write(f"**Response latency:** {result.llm_latency_ms:.1f} ms")
     container.write(f"**Last reply tokens:** {result.total_tokens}")
     container.write(f"**Total session tokens:** {st.session_state.baseline_metrics['total_tokens']}")
 
@@ -516,12 +521,6 @@ def main() -> None:
             if enhanced_updated:
                 rerun_requested = True
         features = enhanced_feature_flags()
-        metrics = st.session_state.enhanced_metrics
-        if features.semantic_cache:
-            st.caption(
-                f"Cache hits: {metrics['cache_hits']} | Tokens saved: {metrics['tokens_saved']} | "
-                f"Estimated cost saved: ${metrics['cost_saved']:.4f}"
-            )
         render_enhanced_telemetry(st.container(), features)
         st.markdown("</div>", unsafe_allow_html=True)
         if st.session_state.enhanced_error:
