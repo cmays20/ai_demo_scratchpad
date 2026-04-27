@@ -392,6 +392,7 @@ def main() -> None:
     service = get_demo_service()
     inject_branding_styles()
     render_header()
+    rerun_requested = False
 
     left_col, right_col = st.columns(2)
 
@@ -417,7 +418,7 @@ def main() -> None:
             with st.spinner("Baseline chat is generating a response..."):
                 baseline_updated = process_baseline_submit(service)
             if baseline_updated:
-                st.rerun()
+                rerun_requested = True
         if st.session_state.baseline_error:
             message, details = st.session_state.baseline_error
             render_error(st, message, details)
@@ -448,7 +449,7 @@ def main() -> None:
             with st.spinner("Enhanced chat is processing with the selected features..."):
                 enhanced_updated = process_enhanced_submit(service)
             if enhanced_updated:
-                st.rerun()
+                rerun_requested = True
         st.markdown('<div class="section-card controls">', unsafe_allow_html=True)
         feature_box = st.container()
         with feature_box:
@@ -484,6 +485,9 @@ def main() -> None:
             message, details = st.session_state.enhanced_error
             render_error(st, message, details)
         st.markdown("</div>", unsafe_allow_html=True)
+
+    if rerun_requested:
+        st.rerun()
 
 
 if __name__ == "__main__":
