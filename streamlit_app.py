@@ -397,6 +397,12 @@ def main() -> None:
         st.markdown('<div class="panel-card baseline">', unsafe_allow_html=True)
         st.subheader("Baseline LLM")
         st.caption("A neutral baseline path that uses the same model and system prompt without Redis-backed features.")
+        baseline_messages = st.container(height=420)
+        render_messages(
+            baseline_messages,
+            st.session_state.baseline_messages,
+            "Send a message to test the baseline LLM flow.",
+        )
         with st.form("baseline_form", clear_on_submit=True):
             st.text_area(
                 "Message",
@@ -408,12 +414,6 @@ def main() -> None:
         if baseline_submitted:
             with st.spinner("Baseline chat is generating a response..."):
                 process_baseline_submit(service)
-        baseline_messages = st.container(height=420)
-        render_messages(
-            baseline_messages,
-            st.session_state.baseline_messages,
-            "Send a message to test the baseline LLM flow.",
-        )
         if st.session_state.baseline_error:
             message, details = st.session_state.baseline_error
             render_error(st, message, details)
@@ -426,6 +426,12 @@ def main() -> None:
         st.markdown('<div class="panel-card enhanced">', unsafe_allow_html=True)
         st.subheader("Redis Enhanced")
         st.caption("Enable Redis-backed features selectively to compare caching, memory, routing, and retrieval.")
+        enhanced_messages = st.container(height=420)
+        render_messages(
+            enhanced_messages,
+            st.session_state.enhanced_messages,
+            "Send a message or upload a file to test the enhanced flow.",
+        )
         with st.form("enhanced_form", clear_on_submit=True):
             st.text_area(
                 "Message",
@@ -437,20 +443,20 @@ def main() -> None:
         if enhanced_submitted:
             with st.spinner("Enhanced chat is processing with the selected features..."):
                 process_enhanced_submit(service)
-        enhanced_messages = st.container(height=420)
-        render_messages(
-            enhanced_messages,
-            st.session_state.enhanced_messages,
-            "Send a message or upload a file to test the enhanced flow.",
-        )
         st.markdown('<div class="section-card controls">', unsafe_allow_html=True)
         feature_box = st.container()
         with feature_box:
             st.markdown("#### Enhanced Features")
-            st.toggle("Semantic caching", key="enhanced_feature_semantic_cache")
-            st.toggle("Memory", key="enhanced_feature_memory")
-            st.toggle("RAG context", key="enhanced_feature_rag")
-            st.toggle("Routing", key="enhanced_feature_routing")
+            toggle_cols = st.columns(4)
+            toggle_specs = [
+                ("Semantic caching", "enhanced_feature_semantic_cache"),
+                ("Memory", "enhanced_feature_memory"),
+                ("RAG context", "enhanced_feature_rag"),
+                ("Routing", "enhanced_feature_routing"),
+            ]
+            for col, (label, key) in zip(toggle_cols, toggle_specs):
+                with col:
+                    st.toggle(label, key=key)
             if st.button("Clear Enhanced Memory", use_container_width=True):
                 try:
                     service.clear_memory(st.session_state.enhanced_session_id)
