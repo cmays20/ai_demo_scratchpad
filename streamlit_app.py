@@ -421,7 +421,6 @@ def main() -> None:
         if st.session_state.baseline_error:
             message, details = st.session_state.baseline_error
             render_error(st, message, details)
-        st.markdown('<div class="section-card telemetry">', unsafe_allow_html=True)
         baseline_telemetry = st.container()
         render_baseline_telemetry(baseline_telemetry)
         st.markdown("</div></div>", unsafe_allow_html=True)
@@ -474,7 +473,6 @@ def main() -> None:
                 f"Cache hits: {metrics['cache_hits']} | Tokens saved: {metrics['tokens_saved']} | "
                 f"Estimated cost saved: ${metrics['cost_saved']:.4f}"
             )
-        st.markdown('<div class="section-card telemetry">', unsafe_allow_html=True)
         render_enhanced_telemetry(st.container(), enhanced_feature_flags())
         st.markdown("</div>", unsafe_allow_html=True)
         if st.session_state.enhanced_error:
